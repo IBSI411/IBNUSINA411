@@ -1548,14 +1548,32 @@
             }
         });
 
-        const infaqYear = db.transaksi.filter(t => 
-            t.type === 'Infaq' && 
-            new Date(t.date).getFullYear() === year && 
-            t.ket.toLowerCase().includes(member.nama.toLowerCase())
-        );
+        const infaqYear = db.transaksi.filter(t => {
+            // Filter hanya Infaq untuk tahun laporan ini
+            if (t.type !== 'Infaq' || new Date(t.date).getFullYear() !== year) {
+                return false;
+            }
+            
+            // Cek nama di keterangan tanpa menghiraukan nama petugas
+            let keterangan = t.ket.toLowerCase();
+            if (keterangan.includes('(petugas:')) {
+                keterangan = keterangan.split('(petugas:')[0];
+            }
+            return keterangan.includes(member.nama.toLowerCase());
+        });
 
         infaqYear.forEach(trx => {
-            const m = new Date(trx.date).getMonth() + 1;
+            // DEFAULT: Ambil bulan dari tanggal input transaksi
+            let m = new Date(trx.date).getMonth() + 1;
+            
+            // PERBAIKAN: Cek apakah infaq ini adalah hasil lebih bayar dari Iuran Wajib
+            // dengan mencocokkan waktu record yang sama persis di sistem
+            const matchingIuran = db.iuran.find(i => i.memberId === memberId && i.date === trx.date);
+            if (matchingIuran) {
+                // Taruh infaq di bulan iuran yang sedang dibayar (misal: Agustus)
+                m = matchingIuran.fromMonth; 
+            }
+
             const tdTgl = document.getElementById(`k-tgl-${m}`);
             const tdInfak = document.getElementById(`k-infak-${m}`);
             const tdParaf = document.getElementById(`k-paraf-${m}`);
@@ -1856,4 +1874,3 @@
 </script>
 </body>
 </html>
-```eof
